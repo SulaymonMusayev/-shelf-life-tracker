@@ -233,15 +233,108 @@
     font-size:16px;
     font-weight:700;
     color: var(--text);
+  }  /* ---------- LOGIN ---------- */
+  #loginScreen{ align-items:center; text-align:center; min-height:100vh; }
+  .login-lock{
+    width:56px; height:56px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, var(--violet), #6f4dff);
+    display:flex; align-items:center; justify-content:center;
+    margin: 0 auto 22px;
+    box-shadow: 0 12px 30px -10px rgba(139,107,255,0.55);
   }
+  .login-lock svg{ width:26px; height:26px; }
+  #loginScreen h1{ margin-bottom:8px; }
+  .login-sub{ color: var(--text-soft); font-size:14px; margin: 0 0 32px; }
+
+  .login-box{
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 22px;
+    width: min(320px, 84vw);
+    box-shadow: 0 20px 50px -20px rgba(0,0,0,0.6);
+    margin-bottom: 18px;
+  }
+  .login-field{ display:flex; flex-direction:column; gap:6px; text-align:left; }
+  .login-field label{
+    font-family:'JetBrains Mono', monospace;
+    font-size:10.5px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color: var(--text-soft);
+  }
+  .login-field input{
+    font-family:'Inter', sans-serif;
+    font-size:15px;
+    font-weight:500;
+    border: 1px solid var(--line);
+    background: var(--bg-deep);
+    border-radius: 10px;
+    padding: 11px 13px;
+    color: var(--text);
+  }
+  .login-field input:focus{ outline:none; border-color: var(--violet); }
+
+  .login-error{
+    font-family:'JetBrains Mono', monospace;
+    font-size:12.5px;
+    color: var(--crimson);
+    min-height:16px;
+    margin-bottom:6px;
+  }
+
+  .logout-btn{
+    font-family:'JetBrains Mono', monospace;
+    font-size:11.5px;
+    font-weight:600;
+    color: var(--text-soft);
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 14px;
+    cursor:pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+  .logout-btn:hover{ border-color: var(--crimson); color: var(--crimson); }
+
 </style>
 </head>
 <body>
 <div class="bg-layer"></div>
 <div class="stage">
 
+  <!-- LOGIN -->
+  <section class="screen active" id="loginScreen">
+    <div class="login-lock">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="11" width="16" height="9" rx="2"></rect>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"></path>
+      </svg>
+    </div>
+    <h1 style="font-size: clamp(24px,5vw,30px); margin-bottom:6px;">Muddat Hisoblagich</h1>
+    <p class="login-sub">Kirish uchun login va parolni kiriting</p>
+
+    <div class="login-box">
+      <div class="login-field">
+        <label>Login</label>
+        <input type="text" id="loginUser" autocomplete="username">
+      </div>
+      <div class="login-field">
+        <label>Parol</label>
+        <input type="password" id="loginPass" autocomplete="current-password">
+      </div>
+    </div>
+    <div class="login-error" id="loginError"></div>
+    <div><button type="button" class="primary" id="loginBtn">Kirish</button></div>
+  </section>
+
   <!-- PAGE 1 -->
-  <section class="screen active" id="page1">
+  <section class="screen" id="page1">
     <h1>Muddat<br>Hisoblagich</h1>
 
     <div class="date-box">
@@ -267,6 +360,7 @@
       <div class="p2-title-block">
         <h2>Bugun — <span id="resultDate">—</span></h2>
       </div>
+      <button type="button" class="logout-btn" id="logoutBtn">Chiqish</button>
       <button type="button" class="ghost" id="backBtn">‹ Qayta hisoblash</button>
     </div>
 
@@ -292,6 +386,107 @@
   ];
 
   const MONTH_NAMES = ["Yanvar","Fevral","Mart","Aprel","May","Iyun","Iyul","Avgust","Sentyabr","Oktyabr","Noyabr","Dekabr"];
+
+  // ---------- LOGIN ----------
+  // Parolning o'zi emas, uning SHA-256 xeshi saqlanadi ("login:parol" formatida).
+  // Boshqa login/parol qo'yish uchun shu saytni oching, brauzer konsolida (F12) ishga tushiring:
+  //   sha256Hex('yangiLogin:yangiParol')
+  // va chiqqan natijani pastdagi AUTH_HASH qiymatiga qo'ying.
+  const AUTH_HASH = "aa7546113b62ebfcf4837d0fceb468f83e4410f91ea4712612677d1883b66ae";
+  const AUTH_KEY = "muddat-hisoblagich-auth";
+
+  // Sof JS SHA-256 (crypto.subtle'ga bog'liq emas — file:// va https, ikkalasida ham ishlaydi)
+  const SHA256_K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  function sha256rotr(x,n){ return (x>>>n)|(x<<(32-n)); }
+  function sha256Hex(message){
+    const utf8 = new TextEncoder().encode(message);
+    const bitLen = utf8.length * 8;
+    const totalLen = (((utf8.length + 9 + 63) >> 6) << 6);
+    const buf = new Uint8Array(totalLen);
+    buf.set(utf8);
+    buf[utf8.length] = 0x80;
+    const dv = new DataView(buf.buffer);
+    dv.setUint32(totalLen - 8, 0, false);
+    dv.setUint32(totalLen - 4, bitLen >>> 0, false);
+
+    let H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+
+    for (let chunkStart = 0; chunkStart < buf.length; chunkStart += 64){
+      const w = new Uint32Array(64);
+      for (let i = 0; i < 16; i++) w[i] = dv.getUint32(chunkStart + i*4, false);
+      for (let i = 16; i < 64; i++){
+        const s0 = sha256rotr(w[i-15],7) ^ sha256rotr(w[i-15],18) ^ (w[i-15]>>>3);
+        const s1 = sha256rotr(w[i-2],17) ^ sha256rotr(w[i-2],19) ^ (w[i-2]>>>10);
+        w[i] = (w[i-16] + s0 + w[i-7] + s1) >>> 0;
+      }
+      let [a,b,c,d,e,f,g,h] = H;
+      for (let i = 0; i < 64; i++){
+        const S1 = sha256rotr(e,6) ^ sha256rotr(e,11) ^ sha256rotr(e,25);
+        const ch = (e & f) ^ (~e & g);
+        const temp1 = (h + S1 + ch + SHA256_K[i] + w[i]) >>> 0;
+        const S0 = sha256rotr(a,2) ^ sha256rotr(a,13) ^ sha256rotr(a,22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const temp2 = (S0 + maj) >>> 0;
+        h=g; g=f; f=e; e=(d+temp1)>>>0;
+        d=c; c=b; b=a; a=(temp1+temp2)>>>0;
+      }
+      H[0]=(H[0]+a)>>>0; H[1]=(H[1]+b)>>>0; H[2]=(H[2]+c)>>>0; H[3]=(H[3]+d)>>>0;
+      H[4]=(H[4]+e)>>>0; H[5]=(H[5]+f)>>>0; H[6]=(H[6]+g)>>>0; H[7]=(H[7]+h)>>>0;
+    }
+    return H.map(x => x.toString(16).padStart(8,'0')).join('');
+  }
+
+  function showScreen(id){
+    ['loginScreen','page1','page2'].forEach(s => {
+      document.getElementById(s).classList.toggle('active', s === id);
+    });
+  }
+
+  function tryLogin(){
+    const errorEl = document.getElementById('loginError');
+    errorEl.textContent = '';
+    const user = document.getElementById('loginUser').value.trim();
+    const pass = document.getElementById('loginPass').value;
+
+    if (!user || !pass){
+      errorEl.textContent = "Login va parolni kiriting.";
+      return;
+    }
+
+    const hash = sha256Hex(`${user}:${pass}`);
+    if (hash === AUTH_HASH){
+      localStorage.setItem(AUTH_KEY, '1');
+      showScreen('page1');
+    } else {
+      errorEl.textContent = "Login yoki parol noto'g'ri.";
+    }
+  }
+
+  document.getElementById('loginBtn').addEventListener('click', tryLogin);
+  document.getElementById('loginPass').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryLogin();
+  });
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    localStorage.removeItem(AUTH_KEY);
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
+    showScreen('loginScreen');
+  });
+
+  // Avval kirgan bo'lsa, login ekranini o'tkazib yuborish
+  if (localStorage.getItem(AUTH_KEY) === '1'){
+    showScreen('page1');
+  }
+  // ---------- /LOGIN ----------
 
   const daySelect = document.getElementById('fday');
   const monthSelect = document.getElementById('fmonth');
