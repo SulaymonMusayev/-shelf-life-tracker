@@ -322,7 +322,7 @@
     <div class="login-box">
       <div class="login-field">
         <label>Login</label>
-        <input type="text" id="loginUser" autocomplete="username">
+        <input type="text" id="loginUser" autocomplete="username" autocapitalize="off" autocorrect="off" spellcheck="false">
       </div>
       <div class="login-field">
         <label>Parol</label>
@@ -454,8 +454,8 @@
   function tryLogin(){
     const errorEl = document.getElementById('loginError');
     errorEl.textContent = '';
-    const user = document.getElementById('loginUser').value.trim();
-    const pass = document.getElementById('loginPass').value;
+    const user = document.getElementById('loginUser').value.trim().toLowerCase();
+    const pass = document.getElementById('loginPass').value.trim();
 
     if (!user || !pass){
       errorEl.textContent = "Login va parolni kiriting.";
